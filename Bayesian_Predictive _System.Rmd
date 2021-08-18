@@ -1,0 +1,591 @@
+---
+title: "Bayesian Predictive System"
+author: 'Dastagiri Dudekula'
+date: "1/25/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+set.seed(123)
+
+### Introductions
+
+Aim of the project is to allow cleint next month deafult payment using Bayesian Logistic regression data analysis.
+
+### 1. DataSet
+
+The dataset I have chosen is the Default of credit card clients. The dataset is mainly aimed at the default payment of customers in Taiwan. The estimated probability of default will be more valuable than the binary result of classification - credible or not credible clients.
+
+The data set contains 23 columns and a default payment binary responce variable to be predicted. There are columns that represents the demographics of the customer like gender, marriage, education and age. The data set also provides the information about the customer's previous payments, bill amounts and payment due's that helps in predicting the default payment. 
+- The columns PAY_0, PAY_2, PAY_3, PAY_4,  PAY_5, PAY_6 represents the history of past payments where PAY_0=the repayment status in September,...and PAY_6=the repayment status in April with the values ranging as  -1 = pay duly; 1 = payment delay for one month; 2 = payment delay for two months; . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above respectively. 
+- The columns BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5, BILL_AMT6 represents the amount of bill statement in dollars. 
+- The columns PAY_AMT1,PAY_AMT2, PAY_AMT3, PAY_AMT4, PAY_AMT5, PAY_AMT6 represnts the amount of previous payments in dollars from Septemper to April.
+
+# SOURCE OF DATA
+
+I gathered this dataset from the UCI respository:
+
+https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients
+
+### READING THE DATA
+
+My dataset contains only numeric data.
+
+```{r}
+full_df <- read.csv(file = '/home/giri/DemoData/default_of_credit_card_clients_1500.csv')
+df_V <- read.csv(file = '/home/giri/DemoData/default_of_credit_card_clients_1k.csv')
+df_V[,c("ID")] <- list(NULL)
+names(df_V)
+```
+
+
+
+```{r}
+head(df_V)
+```
+
+# For basic understanding of the features:
+
+```{r}
+summary(df_V)
+```
+
+
+In this data there is no missing values to process.
+#df_V = na.omit(df_V)
+
+## VISUALIZATION OF THE DATA
+# Plotting individual for better undestanding and observations.
+
+```{r}
+par(mar=c(2,2,2,2))
+par(mfrow=c(2,3))
+hist(df_V$LIMIT_BAL, main="Bal Limit", col="skyblue")
+hist(df_V$SEX, main="Sex", col="skyblue")
+hist(df_V$EDUCATION, main="Education", col="skyblue")
+hist(df_V$MARRIAGE, main="Marriage", col="skyblue")
+hist(df_V$AGE, main="Age", col="skyblue")
+```
+
+# Plotting the independent variable's behavior with respect to dependent variable
+
+```{r}
+plot(df_V$LIMIT_BAL~df_V$default.payment.next.month, xlab="default.payment.next.month", ylab="Bal Limit")
+plot(df_V$AGE~df_V$default.payment.next.month, xlab="default.payment.next.month", ylab="Age")
+plot(df_V$EDUCATION~df_V$default.payment.next.month, xlab="default.payment.next.month", ylab="Education")
+```
+
+# The independent variable's behavior with respect to dependent variable
+
+```{r}
+table(df_V$default.payment.next.month)
+```
+* No effect
+
+```{r}
+table(df_V$default.payment.next.month, df_V$EDUCATION)
+```
+
+```{r}
+table(df_V$default.payment.next.month, df_V$MARRIAGE)
+```
+
+```{r}
+table(df_V$default.payment.next.month, df_V$AGE)
+```
+
+# Co-Variat
+
+```{r}
+full_df$LIMIT_BAL = scale(full_df$LIMIT_BAL, center=TRUE, scale=TRUE)
+full_df$AGE = scale(full_df$AGE, center=TRUE, scale=TRUE)
+
+full_df$BILL_AMT1 = scale(full_df$BILL_AMT1, center=TRUE, scale=TRUE)
+full_df$BILL_AMT2 = scale(full_df$BILL_AMT2, center=TRUE, scale=TRUE)
+full_df$BILL_AMT3 = scale(full_df$BILL_AMT3, center=TRUE, scale=TRUE)
+full_df$BILL_AMT4 = scale(full_df$BILL_AMT4, center=TRUE, scale=TRUE)
+full_df$BILL_AMT5 = scale(full_df$BILL_AMT5, center=TRUE, scale=TRUE)
+full_df$BILL_AMT6 = scale(full_df$BILL_AMT6, center=TRUE, scale=TRUE)
+
+full_df$PAY_AMT1 = scale(full_df$PAY_AMT1, center=TRUE, scale=TRUE)
+full_df$PAY_AMT2 = scale(full_df$PAY_AMT2, center=TRUE, scale=TRUE)
+full_df$PAY_AMT3 = scale(full_df$PAY_AMT3, center=TRUE, scale=TRUE)
+full_df$PAY_AMT4 = scale(full_df$PAY_AMT4, center=TRUE, scale=TRUE)
+full_df$PAY_AMT5 = scale(full_df$PAY_AMT5, center=TRUE, scale=TRUE)
+full_df$PAY_AMT6 = scale(full_df$PAY_AMT6, center=TRUE, scale=TRUE)
+```
+
+```{r}
+write.csv(full_df,'/home/giri/DemoData/default_of_credit_card_clients_co-var.csv', row.names = FALSE)
+```
+
+```{r}
+df <- read.csv(file = '/home/giri/DemoData/default_of_credit_card_clients_Train.csv')
+df[,c("ID")] <- list(NULL)
+```
+
+head(df)
+
+# PERLIMINARY OBSERVATIONs:
+
+1. The basic demographics on the whole dataset can is visible in the subplots plotted as histograms, which indicates very primary information such as the more number of female and less number of male customers, and the count of customers based on their marital status and education.
+2. The balance limit is increasing the default payment was not the option.
+3. The customers within the age group of 20-35 are more likely to use the default payment
+
+# Library
+
+library(R2jags,warn.conflicts = FALSE, quietly = TRUE)
+library(rjags,warn.conflicts = FALSE, quietly = TRUE)
+library(coda,warn.conflicts = FALSE, quietly = TRUE)
+library(Metrics, warn.conflicts = FALSE, quietly = TRUE)
+
+
+### Model preperation
+
+     ## We will analyze these data using the Bayesian logistic regression model,
+
+            ## defaultPaymentNextMonth[i] = Bernoulli(q[i]),
+            ## logit(q[i]) = beta[1] + ∑ (X[j][i] * beta[j])
+            
+      # where,
+            # i = 1, 2, 3, ... 1000
+            # j = 2, 3, 4, ... 24
+
+      # where,
+            # defaultPaymentNextMonth : Target  variable.
+            # X[j][i] : data set features - LIMIT_BAL, SEX, EDUCATION, ..., PAY_AMT6.
+            # beta[2], ..., beta[24] are the unknown regression coefficients => independent non-informative prior's.
+            # beta[1] : intercept
+
+
+```{r}
+allData = list(defaultPaymentNextMonth = df$default.payment.next.month, LIMIT_BAL = df$LIMIT_BAL, SEX=df$SEX, EDUCATION=df$EDUCATION,
+              MARRIAGE = df$MARRIAGE, AGE=df$AGE, PAY_0 = df$PAY_0, PAY_2=df$PAY_2, PAY_3 = df$PAY_3, PAY_4 = df$PAY_4,
+              PAY_5 = df$PAY_5, PAY_6 = df$PAY_6, BILL_AMT1 = df$BILL_AMT1, BILL_AMT2 = df$BILL_AMT2,
+              BILL_AMT3 = df$BILL_AMT3, BILL_AMT4 = df$BILL_AMT4, BILL_AMT5 = df$BILL_AMT5, BILL_AMT6=df$BILL_AMT6, PAY_AMT1 = df$PAY_AMT1, PAY_AMT2 = df$PAY_AMT2,
+              PAY_AMT3 = df$PAY_AMT3, PAY_AMT4 = df$PAY_AMT4, PAY_AMT5 = df$PAY_AMT5, PAY_AMT6 = df$PAY_AMT6, n = nrow(df))
+```              
+
+nrow(df)
+
+## Model with Full features
+
+```{r}
+full_model1 <- "model{
+
+   # Likelihood   
+
+   for(i in 1:n){
+   
+    logit(q[i]) <- beta[1] + beta[2]*LIMIT_BAL[i] + beta[3]*SEX[i] + beta[4]*EDUCATION[i] + beta[5]*MARRIAGE[i] + beta[6]*AGE[i] + beta[7]*PAY_0[i] + beta[8]*PAY_2[i] + beta[9]*PAY_3[i] + beta[10]*PAY_4[i] + beta[11]*PAY_5[i] + beta[12]*PAY_6[i] + beta[13]*BILL_AMT1[i] + beta[14]*BILL_AMT2[i] + beta[15]*BILL_AMT3[i] + beta[16]*BILL_AMT4[i] + beta[17]*BILL_AMT5[i] + beta[18]*BILL_AMT6[i] + beta[19]*PAY_AMT1[i] + beta[20]*PAY_AMT2[i] + beta[21]*PAY_AMT3[i] + beta[22]*PAY_AMT4[i] + beta[23]*PAY_AMT5[i] + beta[24]*PAY_AMT6[i]
+   
+    defaultPaymentNextMonth[i] ~ dbern(q[i])
+    
+   }
+
+   # Priors
+   
+   for(j in 1:24){
+    beta[j] ~ dnorm(0.0, 1.0/25.0) # noninformative for logistic regression
+   }
+
+  }"
+```
+
+Here, the model build by considering all the features of the data set. For co-efficient values generations, used the normal distribution function.
+
+## Fitting the model created;
+
+jags.model is used to create an object representing a Bayesian graphical model, specified with a BUGS-language description of the prior distribution, and a set of data.
+
+
+```{r}
+jags_full_model1 = jags.model(textConnection(full_model1), data = allData, n.chains=3, n.adapt=100, quiet=FALSE)
+```
+
+Note: for more adaptions the model is taking huge amount of time to perform.
+
+## Updating jags model
+## Samling the model (posterior iterations)
+
+
+```{r}
+
+start_time <- Sys.time()
+
+update(jags_full_model1, 500)
+
+end_time <- Sys.time()
+end_time - start_time
+
+
+start_time <- Sys.time()
+
+sampling_jags_full_model1 <- coda.samples(jags_full_model1, variable.names=c("beta"), n.iter=500)
+
+end_time <- Sys.time()
+end_time - start_time
+```
+
+Update(): Refit a model by burn-in iterations 500, for better fitting/adjustment.
+coda.samples(): produces the 500 simulations, we'll use to approximate the posterior.
+
+# MCMC
+
+Markov chains (conditional independence) and Monte Carlo techniques (estimation by simulation) to yield Markov chain Monte Carlo (MCMC) allows us to indeirectly generate independent sample from a particular posterior distribution.
+```{r}
+mcmc_sampling_jags_full_model1 = as.mcmc(do.call(rbind, sampling_jags_full_model1))
+summary(mcmc_sampling_jags_full_model1)
+```
+
+summary(sampling_jags_full_model1)
+
+
+### Convergence diagnosis Analysis
+
+# An crucial step in MCMC is verifying the convergence for all the parameters. Bayesian Inference based on MCMC sampling is valid if and only if the Markov chain has convergence. MCMC creates a sample from the posterior distribution, and we usually want to know whether this sample is sufficiently close to the posterior to be used for analysis.  Here, I have used traces - plots, marginal densities, autocorrelation diagnosis and Gelman-Rubin diagnostics.
+
+## Trace and Density
+```{r}
+par(mar=c(2,2,2,2))
+par(mfrow=c(3,2))
+plot(sampling_jags_full_model1)
+```
+
+# + Most of our traceplots reveal good mixing in the chains.
+# - Except for the parameters beta[13..18], the traces of chains are mixed well (diverged). So, seems like there'd be no significance.
+# - For beta[4] and beta[5], density probility tends with no importance by having 0 half.
+
+# Autocorrelation plot of each parameter:
+
+The correlation for time series observations with previous time steps called lags.  Because the correlation of the time series observations is calculated with values of the same series at previous times, this is called a serial correlation, or an autocorrelation.
+
+```{r}
+par(mar=c(2,2,2,2))
+par(mfrow=c(3, 2))
+autocorr.plot(sampling_jags_full_model1)
+```
+
+
+```{r}
+autocorr.diag(sampling_jags_full_model1)
+```
+
+# + our autocorrelation statistics look like there is minimal autocorrelation in the Markov Chains, i.e. they are mixing well and providing independent samples at each iteration.
+# - Except for beta[13..18]
+
+#Examine convergence of the Markov chains using the Gelman-Brooks-Rubin diagnostic
+
+```{r}
+gelman.plot(sampling_jags_full_model1)
+```
+
+# A factor of 1 means that between-chains and within chain variances are equal, larger values means that there is still a notable difference between chains. Often, it is said that everything below 1.1 or so is OK.
+
+
+```{r}
+gelman.diag(sampling_jags_full_model1)
+```
+
+# - beta[13 to 18] most uncertain (far from 1.1): may be because of number of iteraion while sapling were less.(500)
+
+
+summary(sampling_jags_full_model1)
+
+# Summary
+
+```{r}
+summary(sampling_jags_full_model1)
+```
+
+## Frequentist approach (explain also logit and probit)
+
+```{r}
+freq_full_model1 <- glm(default.payment.next.month ~ LIMIT_BAL + SEX + EDUCATION + MARRIAGE + AGE + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6 + BILL_AMT1 + BILL_AMT2 + BILL_AMT3 + BILL_AMT4 + BILL_AMT5 + BILL_AMT6 + PAY_AMT1 + PAY_AMT2 + PAY_AMT3 + PAY_AMT4 + PAY_AMT5 + PAY_AMT6, data=df, family=binomial(link="logit"))
+summary(freq_full_model1)
+```
+
+# Aquired the almost similar observations for both the models.
+
+
+## Deviantion Information Criterion : DIC (Lower is better the model)
+
+```{r}
+DIC_model1 = dic.samples(jags_full_model1, n.iter=500)
+DIC_model1
+```
+
+### OBSERVATIONS:
+
+# - From the plots, beta4 and beta5 were tends mean probability towards 0.
+# - beta13 to beta18, there is more ambiguity and no importance while making move towards p(.)=1.
+# + our autocorrelation statistics look like there is minimal autocorrelation in the Markov Chains, i.e. they are mixing well and providing independent samples at each iteration.
+# - Except for beta[13..18]
+
+Hence, by considerig negative observations, redeced features used to model again.
+Removed variales:
+beta[3] : SEX
+beta[4] : EDUCATION
+beta[5] : MARRIAGE
+beta[13..18] : BILL_AMT1..6
+
+
+## By the observation we have got, build the model with reduced features and check:
+
+```{r}
+reduced_model2 <- "model{
+
+   # Likelihood
+
+   for(i in 1:n){
+    
+    logit(q[i]) <- beta[1] + beta[2]*LIMIT_BAL[i] + beta[3]*AGE[i] + beta[4]*PAY_0[i] + beta[5]*PAY_2[i] + beta[6]*PAY_3[i] + beta[7]*PAY_4[i] + beta[8]*PAY_5[i] + beta[9]*PAY_6[i] + beta[10]*PAY_AMT1[i] + beta[11]*PAY_AMT2[i] + beta[12]*PAY_AMT3[i] + beta[13]*PAY_AMT4[i] + beta[14]*PAY_AMT5[i] + beta[15]*PAY_AMT6[i]
+   
+    defaultPaymentNextMonth[i] ~ dbern(q[i])
+    
+   }
+
+   # Priors
+
+   for(j in 1:15){
+    beta[j] ~ dnorm(0.0, 1.0/25.0) # noninformative for logistic regression
+   }
+
+  }"
+```
+
+# Model fitting
+
+```{r}
+jags_reduced_model2 = jags.model(textConnection(reduced_model2), data = allData, n.chains=3, n.adapt=100, quiet=FALSE)
+```
+# Updating jags model
+```{r}
+start_time <- Sys.time()
+
+update(jags_reduced_model2, 500)
+
+end_time <- Sys.time()
+end_time - start_time
+
+# Samling the model (posterior iterations)
+start_time <- Sys.time()
+
+sampling_jags_reduced_model2 <- coda.samples(jags_reduced_model2, variable.names=c("beta"), n.iter=500)
+
+end_time <- Sys.time()
+end_time - start_time
+```
+# MCMC
+```{r}
+mcmc_sampling_jags_reduced_model2 = as.mcmc(do.call(rbind, sampling_jags_reduced_model2))
+summary(mcmc_sampling_jags_reduced_model2)
+```
+### Convergence diagnosis
+
+# Trace and Density
+```{r}
+par(mar=c(2,2,2,2))
+par(mfrow=c(3,2))
+plot(sampling_jags_reduced_model2)
+```
+
+# Autocorrelation plot of each parameter:
+
+```{r}
+par(mar=c(2,2,2,2))
+par(mfrow=c(3, 2))
+autocorr.plot(sampling_jags_reduced_model2)
+```
+
+```{r}
+autocorr.diag(sampling_jags_reduced_model2)
+```
+
+#Examine convergence of the Markov chains using the Gelman-Brooks-Rubin diagnostic
+
+```{r}
+
+gelman.plot(sampling_jags_reduced_model2)
+```
+
+```{r}
+gelman.diag(sampling_jags_reduced_model2)
+```
+Note: Lessar than 1.1, Good.
+
+# Summary
+
+```{r}
+summary(sampling_jags_reduced_model2)
+```
+
+## Frequentist approach (explain also logit and probit)
+
+```{r}
+freq_reduced_model2 <- glm(default.payment.next.month ~ LIMIT_BAL + SEX + AGE + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6 + PAY_AMT1 + PAY_AMT2 + PAY_AMT3 + PAY_AMT4 + PAY_AMT5 + PAY_AMT6, data=df, family=binomial(link="logit"))
+summary(freq_reduced_model2)
+```
+
+## Model1: Deviantion Information Criterion : (Lower is better the model)
+
+```{r}
+DIC_model1 = dic.samples(jags_full_model1, n.iter=500)
+DIC_model1
+```
+
+# Model2: Deviantion Information Criterion :
+
+```{r}
+DIC_model2 = dic.samples(jags_reduced_model2, n.iter=500)
+DIC_model2
+```
+
+Note: By comparing both the models using DIC, second model got lesser value, better the model.
+
+
+###Prediction
+
+## Testing Data to Predict
+
+```{r}
+df_test <- read.csv(file = '/home/giri/DemoData/default_of_credit_card_clients_Test.csv')
+df_test[,c("ID", "SEX", "EDUCATION", "MARRIAGE", "BILL_AMT1", "BILL_AMT2", "BILL_AMT3", "BILL_AMT4", "BILL_AMT5", "BILL_AMT6")] <- list(NULL)
+names(df_test)
+```
+
+## Training and Testing data modeling
+
+```{r}
+wholeData = list(defaultPaymentNextMonth = df$default.payment.next.month, LIMIT_BAL = df$LIMIT_BAL, AGE=df$AGE, PAY_0 = df$PAY_0, PAY_2=df$PAY_2, PAY_3 = df$PAY_3, PAY_4 = df$PAY_4, PAY_5 = df$PAY_5, PAY_6 = df$PAY_6, PAY_AMT1 = df$PAY_AMT1, PAY_AMT2 = df$PAY_AMT2,PAY_AMT3 = df$PAY_AMT3, PAY_AMT4 = df$PAY_AMT4, PAY_AMT5 = df$PAY_AMT5, PAY_AMT6 = df$PAY_AMT6, tr = nrow(df), 
+              
+              defaultPaymentNextMonth_Ts = df_test$default.payment.next.month, LIMIT_BAL_Ts = df_test$LIMIT_BAL, AGE_Ts=df_test$AGE, PAY_0_Ts = df_test$PAY_0, PAY_2_Ts=df_test$PAY_2, PAY_3_Ts = df_test$PAY_3, PAY_4_Ts = df_test$PAY_4, PAY_5_Ts = df_test$PAY_5, PAY_6_Ts = df_test$PAY_6, PAY_AMT1_Ts = df_test$PAY_AMT1, PAY_AMT2_Ts = df_test$PAY_AMT2, PAY_AMT3_Ts = df_test$PAY_AMT3, PAY_AMT4_Ts = df_test$PAY_AMT4, PAY_AMT5_Ts = df_test$PAY_AMT5, PAY_AMT6_Ts = df_test$PAY_AMT6, ts = nrow(df_test)
+              )
+```
+
+#Model:
+
+```{r}
+reduced_model2_prediction <- "model{
+
+   # Likelihood
+
+   for(i in 1:tr){
+   
+    logit(q[i]) <- beta[1] + beta[2]*LIMIT_BAL[i] + beta[3]*AGE[i] + beta[4]*PAY_0[i] + beta[5]*PAY_2[i] + beta[6]*PAY_3[i] + beta[7]*PAY_4[i] + beta[8]*PAY_5[i] + beta[9]*PAY_6[i] + beta[10]*PAY_AMT1[i] + beta[11]*PAY_AMT2[i] + beta[12]*PAY_AMT3[i] + beta[13]*PAY_AMT4[i] + beta[14]*PAY_AMT5[i] + beta[15]*PAY_AMT6[i]
+   
+    defaultPaymentNextMonth[i] ~ dbern(q[i])
+    
+   }
+
+   # Priors
+
+   for(j in 1:15){
+    beta[j] ~ dnorm(0.0, 1.0/25.0) # noninformative for logistic regression
+   }
+      
+   # Prediction
+   
+   for(i in 1:ts){
+   
+    logit(p[i]) <- beta[1] + beta[2]*LIMIT_BAL_Ts[i] + beta[3]*AGE_Ts[i] + beta[4]*PAY_0_Ts[i] + beta[5]*PAY_2_Ts[i] + beta[6]*PAY_3_Ts[i] + beta[7]*PAY_4_Ts[i] + beta[8]*PAY_5_Ts[i] + beta[9]*PAY_6_Ts[i] + beta[10]*PAY_AMT1_Ts[i] + beta[11]*PAY_AMT2_Ts[i] + beta[12]*PAY_AMT3_Ts[i] + beta[13]*PAY_AMT4_Ts[i] + beta[14]*PAY_AMT5_Ts[i] + beta[15]*PAY_AMT6_Ts[i]
+   
+    defaultPaymentNextMonth_pred[i] ~ dbern(p[i])
+    
+   }
+
+  }"
+```
+
+# Model fitting
+
+```{r}
+jags_reduced_model2_pred = jags.model(textConnection(reduced_model2_prediction), data = wholeData, n.chains=3, n.adapt=100, quiet=FALSE)
+```
+
+
+# Updating jags model
+
+```{r}
+start_time <- Sys.time()
+
+update(jags_reduced_model2_pred, 500)
+
+end_time <- Sys.time()
+end_time - start_time
+
+# Samling the model (posterior iterations)
+start_time <- Sys.time()
+
+sampling_jags_reduced_model2_pred <- coda.samples(jags_reduced_model2_pred, variable.names=c("beta", "defaultPaymentNextMonth_pred"), n.iter=500)
+
+end_time <- Sys.time()
+end_time - start_time
+```
+
+summary(sampling_jags_reduced_model2_pred)
+
+
+# MCMC
+```{r}
+mcmc_sampling_jags_reduced_model2_pred = as.mcmc(do.call(rbind, sampling_jags_reduced_model2_pred))
+#summary(mcmc_sampling_jags_reduced_model2_pred)
+```
+
+# Predicted Values extraction
+```{r}
+predicted_object <- do.call(rbind.data.frame, sampling_jags_reduced_model2_pred)
+
+predicted_objects_means = as.data.frame(colMeans(predicted_object)) #colMeans of parameter's
+
+prediction_output_prob = as.data.frame(predicted_objects_means[-c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15),]) #co-eff's removed(only target is required)
+
+names(prediction_output_prob)[1] <- "default"
+
+# Final Predicted output:
+
+prediction_output_prob <- transform(prediction_output_prob, default = ifelse(default > 0.50, 1, 0))
+
+```
+
+# Confusion matrix
+```{r}
+table(prediction_output_prob$default, df_test$default.payment.next.month)
+```
+Note: Predicted 0's more accurate than 1's, Because in the Train and Test datasets 0's to 1's ratio is 4:1.
+
+# Accuracy:
+```{r}
+accuracy(df_test$default.payment.next.month, prediction_output_prob$default)
+```
+
+
+#### Future Plans:
+
+Integrate with Big data for larger datasets and for more samplings iterations(re-write JAGS).
+
+### References:
+
+Lecturer PDF and codes
+https://www4.stat.ncsu.edu/~reich/ABA/notes/JAGS.pdf
+https://r2012-bordeaux.sciencesconf.org/file/14430
+https://www.coursera.org/lecture/mcmc-bayesian-statistics/jags-model-logistic-regression-xOkT9
+https://rpubs.com/corey_sparks/30893
+https://www4.stat.ncsu.edu/~reich/ABA/code/GLM
+http://www.medicine.mcgill.ca/epidemiology/joseph/courses/EPIB-621/bayeslogit.pdf
+https://docs.pymc.io/notebooks/GLM-logistic.html
+https://pymc-devs.github.io/pymc/theory.html#monte-carlo-methods-in-bayesian-analysis
+https://github.com/susanli2016/Machine-Learning-with-Python/blob/master/Bayesian%20Logistic%20Regression_bank%20marketing.ipynb
+https://towardsdatascience.com/building-a-bayesian-logistic-regression-with-python-and-pymc3-4dd463bbb16
+https://github.com/susanli2016/Machine-Learning-with-Python
+https://github.com/susanli2016/Machine-Learning-with-Python/blob/master/Bayesian%20Modeling%20Customer%20Support%20Response%20time.ipynb
+https://github.com/susanli2016/Machine-Learning-with-Python/blob/master/Bayesian%20Statistics%20Python_PyMC3_ArviZ.ipynb
+https://theoreticalecology.wordpress.com/2011/12/09/mcmc-chain-analysis-and-convergence-diagnostics-with-coda-in-r/
+https://blog.stata.com/2016/05/26/gelman-rubin-convergence-diagnostic-using-multiple-chains/
+https://stats.stackexchange.com/questions/296059/effective-sample-size-greater-than-actual-sample-size
+
